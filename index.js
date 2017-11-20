@@ -1,3 +1,22 @@
+/** 
+ * @module tb-payments-globalonepay
+ *
+ * @description 
+ *
+ * <p>
+ * Módulo que permite realizar pagos, registro de tarjetas de crédito y devoluciones a través del servicio GlobalObePay. Este servicio se utiliza a través del módulo <b>tb-payments</b>
+ * <p>
+ * 
+ * @see [Guía de uso]{@tutorial tb-payments-globalonepay} para más información.
+ * @see [REST API]{@link module:tb-payments/routes} (API externo).
+ * @see [Class API]{@link module:tb-payments-globalonepay.Adapter} (API interno).
+ * @see Repositorio en {@link https://github.com/toroback/tb-payments-globalonepay|GitHub}.
+ * </p>
+ * 
+ */
+
+
+
 var request = require('request');
 var moment  = require('moment');
 var md5     = require('md5');
@@ -10,10 +29,20 @@ var url;
 var port;
 
 /**
- * GlobalOnePay Adapter 
- * @class
+ * Adaptador del servicio GlobalOnePay
+ * @memberOf module:tb-payments-globalonepay
  */
 class Adapter{
+  /**
+   * Crea un adaptador de GlobalOnePay
+   * @param  {Object} client                         Objeto con la informacion para crear el adaptador.
+   * @param  {Object} client.options                 Objeto con las credenciales para el servicio.
+   * @param  {Object} client.options.merchandt       Código merchandt para GlobalOnePay
+   * @param  {Object} client.options.terminalId      TerminalID para GlobalOnePay
+   * @param  {Object} client.options.sharedSecret    SharedSecret para GlobalOnePay
+   * @param  {Object} [client.options.url]           URL para el servicio de pagos
+   * @param  {Object} [client.options.port]          Puerto para el servicio de pagos
+   */
   constructor(client){
     this.client = client;
     this.credential = {
@@ -36,6 +65,15 @@ class Adapter{
   //   cardExpiry:"1220",
   //   cardType:"MASTERCARD",
   //   cardHolderName:"Messi"  
+  /**
+   * Registra una tarjeta de credito
+   * @param  {Object} data Información de la tarjeta a registrar.
+   * @param  {String} data.cardNumber Número de la tarjeta de crédito.
+   * @param  {String} data.cardExpiry Fecha de vencimiento de la tarjeta de crédito en formato "MMDD" (Ej:0920 -> "20 de septiembre").
+   * @param  {String} data.cardType  Tipo de tarjeta de crédito (EJ: MASTERCARD).
+   * @param  {String} data.cardHolderName Nombre en la tarjeta de crédito.
+   * @return {Promise<PaymentRegisterSchema>} Promesa con la información del registro
+   */
   register(data) {
     return new Promise((resolve, reject)=>{
       let regts = new Date();
@@ -99,7 +137,22 @@ class Adapter{
   // data.cardExpiry     : ,
   // data.cardHolderName : ,
   // data.cvv            : 
-
+  /**
+   * Realiza un pago
+   * @param  {Object} data Información del pago que se va a realizar. La información dependerá del servicio a utilizar.
+   * @param  {String} data.orderId Identificador de la compra
+   * @param  {String} data.amount  Valor de la compra
+   * @param  {String} data.currency  Divisa en la que se va a realizar el pago
+   * @param  {String} data.cardNumber Número de la tarjeta de crédito.
+   * @param  {String} data.cardExpiry Fecha de vencimiento de la tarjeta de crédito en formato "MMDD" (Ej:0920 -> "20 de septiembre").
+   * @param  {String} data.cardType  Tipo de tarjeta de crédito (EJ: MASTERCARD).
+   * @param  {String} data.cardHolderName Nombre en la tarjeta de crédito.
+   * @param  {String} data.cvv Código secreto que aparece en la tarjeta
+   * @param  {Object} [options] Opciones extras relacionadas con el pago. La información dependerá del servicio a utilizar.
+   * @param  {String} options.terminalType Terminal Type de GlobalOnePay
+   * @param  {String} options.transactionType Tipo de transacción de GlobalOnePay
+   * @return {Promise<TransactionSchema>} Promesa con la información de la transacción
+   */
   pay(data, options){
     var options = options || {}
     return new Promise((resolve, reject)=>{
@@ -178,6 +231,18 @@ class Adapter{
   // data.amount
   // data.cardNumber
   // data.currency
+  /**
+   * Realiza un pago con una tarjeta de crédito previamente registrada
+   * @param  {Object} data Información del pago que se va a realizar. La información dependerá del servicio a utilizar.
+   * @param  {String} data.orderId Identificador de la compra
+   * @param  {String} data.amount  Valor de la compra
+   * @param  {String} data.currency  Divisa en la que se va a realizar el pago
+   * @param  {String} data.cardNumber Identificador de la tarjeta de crédito registrada
+   * @param  {Object} [options] Opciones extras relacionadas con el pago. La información dependerá del servicio a utilizar.
+   * @param  {String} options.terminalType Terminal Type de GlobalOnePay
+   * @param  {String} options.transactionType Tipo de transacción de GlobalOnePay
+   * @return {Promise<TransactionSchema>} Promesa con la información de la transacción
+   */
   payRegistered(data, options){
     var options = options || {}
     return new Promise((resolve, reject)=>{
@@ -251,6 +316,16 @@ class Adapter{
   // data.amount},
   // options.operator},
   // options.reason }
+  /**
+   * Realiza una devolución
+   * @param  {Object} data Información de la devolución que se va a realizar. La información dependerá del servicio a utilizar.
+   * @param  {String} data.paymentRef  Referencia del pago del que se va a realizar la devolución
+   * @param  {String} data.amount      Cantidad a devolver
+   * @param  {Object} [options] Opciones extras relacionadas con la devolución. La información dependerá del servicio a utilizar.
+   * @param  {String} [options.operator]  Nombre de quien realiza la operacion
+   * @param  {String} [options.reason]    Razón de la devolución
+   * @return {Promise<TransactionSchema>} Promesa con la información de la transacción
+   */
   refund(data, options){
 
     var options = options || {}
@@ -311,6 +386,57 @@ class Adapter{
       })    
     })
   }
+
+//   /**
+//    * Desregistra una tarjeta de credito. 
+//    * @param  {Object} data Información de la tarjeta a desregistrar. La información dependerá del servicio a utilizar.
+//    * @return {Promise<PaymentRegisterSchema>} Promesa que indica si se desregistró correctamente
+//    */
+//   unregister(){
+//     return new Promise((resolve, reject)=>{
+//       let regts = new Date();
+//       var dateTime =  moment(regts).format("DD-MM-YYYY:hh:mm:ss:SSS");
+//       var hash     =  md5(this.credential.TerminalID+this.credential.Merchandt+dateTime+data.reference+this.credential.SharedSecret)
+//       console.log("Generated hash" , hash);
+//       var payload  = {
+//         "SECURECARDREMOVAL":[
+//             {"MERCHANTREF"    : this.credential.Merchandt},
+//             {"TERMINALID"     : this.credential.TerminalID},
+//             {"DATETIME"       : dateTime},
+//             {"CARDREFERENCE"  : data.reference},
+//             {"HASH"           : hash}
+//           ]
+//       }
+//       console.log("entra en payments.unregister globalonepay", payload)
+//       req(this.url, this.port, xml(payload, { declaration: true }))
+//         .then(resp=>{
+//          // console.log(resp);
+//           console.log("globalonepay unregister resp", resp);
+//           if (resp.ERROR){
+//             //manejar la situacion con error code
+//             reject(createError(resp.ERROR));
+//             //{ ERROR: { ERRORCODE: [ 'E08' ], ERRORSTRING: [ 'INVALID MERCHANTREF' ] } }
+//             //{ ERROR: { ERRORCODE: [ 'E13' ], ERRORSTRING: [ 'INVALID HASH' ] } }
+//             //{ ERROR: { ERRORCODE: [ 'E10' ], ERRORSTRING: [ 'INVALID CARDNUMBER' ] } }
+//           }else {
+//             //Guardar en bd
+//             //verificar md5
+
+//             let unregistration = {
+//               unregts: moment(resp.SECURECARDREMOVALRESPONSE.DATETIME[0], 'DD-MM-YYYY:hh:mm:ss:SSS').toDate(),
+//               reference: data.reference,
+//               respts: new Date()
+//             }
+
+//             resolve(unregistration);
+//           }
+//         })
+//         .catch(err=>{
+//           //MANEJAR ERROR
+//           reject(err);
+//         })    
+//     });
+//   }
 }
 
 function hideCardNumber(cardNumber){
