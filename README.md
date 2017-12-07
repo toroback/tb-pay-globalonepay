@@ -4,10 +4,9 @@
   
 Para utilizar los servicios de pago de GlobalOnePay es necesario tener instalada las librerías "tb-payments" y "tb-payments-globalonepay".
 
-
 ## **Configuración del servicio:**
 
-### **- Configuración desde A2Server:** 
+### **- Configuración desde interfaz administrativa:** 
 
 NO DISPONIBLE
 
@@ -15,7 +14,7 @@ NO DISPONIBLE
 
 La configuración manual se realiza en el archivo "config.json".
 
-Para ello hay que añadir el objeto "paymentsOptions", si no se tenía enteriormente, y agregar un objeto cuya clave sea "globalonepay" que contendrá la información necesaria para el servicio. Al completarlo, debería quedar de la siguiente manera:
+Para ello hay que añadir el objeto "paymentsOptions", si no se tenía anteriormente, y agregar un objeto cuya clave sea "globalonepay" que contendrá la información necesaria para el servicio. Al completarlo, debería quedar de la siguiente manera:
 
 ```javascript
 "paymentsOptions":{
