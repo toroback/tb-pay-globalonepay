@@ -24,9 +24,9 @@ var xml     = require('xml');
 var parseString = require('xml2js').parseString;
 
 var defaultUrl = "https://testpayments.globalone.me/merchant/xmlpayment";
-var defaultPort = 80;
-var url;
-var port;
+var defaultPort = 443;
+// var url;
+// var port;
 
 /**
  * Adaptador del servicio GlobalOnePay
@@ -41,6 +41,7 @@ class Adapter{
    * @param  {Object} client.options.sharedSecret    SharedSecret para GlobalOnePay
    * @param  {Object} [client.options.url]           URL para el servicio de pagos
    * @param  {Object} [client.options.port]          Puerto para el servicio de pagos
+   * @param  {Object} [client.options.mcp]           Indica si se soportan múltiples monedas
    */
   constructor(client){
     this.client = client;
@@ -55,6 +56,7 @@ class Adapter{
 
     this.url = client.options.url || defaultUrl;
     this.port = client.options.port || defaultPort;
+    this.multiCurrency = client.options.mcp == true;
   }
 
   ///////////-------------Lib------------------------------
@@ -78,21 +80,22 @@ class Adapter{
   register(data) {
     return new Promise((resolve, reject)=>{
       let regts = new Date();
-      var dateTime =  moment(regts).format("DD-MM-YYYY:HH:mm:ss:SSS");
-      var hash     =  md5(  this.credential.TerminalID
-        + data.merchantRef 
-        + dateTime
-        + data.cardNumber
-        + data.cardExpiry
-        + data.cardType
-        + data.cardHolderName
-        + this.credential.SharedSecret);
+      var dateTime =  moment.utc(regts).format("DD-MM-YYYY:HH:mm:ss:SSS");
+      var hash     =  hashData([
+        this.credential.TerminalID,
+        data.merchantRef,
+        dateTime,
+        data.cardNumber,
+        data.cardExpiry,
+        data.cardType,
+        data.cardHolderName,
+        this.credential.SharedSecret
+      ]);
 
-      console.log("Register data" , data);
-      console.log("Generated hash" , hash);
+      // console.log("Register data" , data);
+      // console.log("Generated hash" , hash);
       var payload  = {
         "SECURECARDREGISTRATION":[
-            
             // {"MERCHANTREF"    : this.credential.Merchandt},
             {"MERCHANTREF"    : data.merchantRef},
             {"TERMINALID"     : this.credential.TerminalID},
@@ -107,7 +110,7 @@ class Adapter{
       if(data.cvv){
         payload.SECURECARDREGISTRATION.push({"CVV" : data.cvv});
       }
-      console.log("entra en payments.register globalonepay", payload)
+      // console.log("entra en payments.register globalonepay", payload)
       req(this.url, this.port, xml(payload, { declaration: true }))
       .then(resp=>{
        // console.log(resp);
@@ -127,8 +130,9 @@ class Adapter{
             cardHolderName: data.cardHolderName,
             cardExpiry: data.cardExpiry,
             cardNumber: hideCardNumber(data.cardNumber),
-            regts: regts,
-            respts: new Date()
+            regts: moment.utc(resp.SECURECARDREGISTRATIONRESPONSE.DATETIME[0], 'DD-MM-YYYY:HH:mm:ss:SSS').toDate(),//regts,
+            regrespts: moment.utc(new Date()).toDate(),
+            active: true
           }
 
           resolve(registration);
@@ -141,7 +145,60 @@ class Adapter{
     })
   }
 
+  /**
+   * Desregistra una tarjeta de credito. 
+   * @param  {Object} data Información de la tarjeta a desregistrar. La información dependerá del servicio a utilizar.
+   * @param  {String} data.merchantRef Identificador personal de la tarjeta de crédito que se va a desregistrar.
+   * @param  {String} data.reference Referencia de GlobalOnePay de la tarjeta de crédito registrada. 
+   * @return {Promise<PaymentRegisterSchema>} Promesa que indica si se desregistró correctamente
+   */
+  unregister(data){
+    return new Promise((resolve, reject)=>{
+      let unregts = new Date();
+      var dateTime =  moment.utc(unregts).format("DD-MM-YYYY:HH:mm:ss:SSS");
+      var hash     =  hashData([this.credential.TerminalID,data.merchantRef,dateTime,data.reference,this.credential.SharedSecret]);
+      // console.log("Generated hash" , hash);
+      var payload  = {
+        "SECURECARDREMOVAL":[
+            // {"MERCHANTREF"    : this.credential.Merchandt},
+            {"MERCHANTREF"    : data.merchantRef},
+            {"CARDREFERENCE"  : data.reference},
+            {"TERMINALID"     : this.credential.TerminalID},
+            {"DATETIME"       : dateTime},
+            {"HASH"           : hash}
+          ]
+      }
+      // console.log("entra en payments.unregister globalonepay", payload)
+      req(this.url, this.port, xml(payload, { declaration: true }))
+        .then(resp=>{
+         // console.log(resp);
+          console.log("globalonepay unregister resp", resp);
+          if (resp.ERROR){
+            //manejar la situacion con error code
+            reject(createError(resp.ERROR));
+            //{ ERROR: { ERRORCODE: [ 'E08' ], ERRORSTRING: [ 'INVALID MERCHANTREF' ] } }
+            //{ ERROR: { ERRORCODE: [ 'E13' ], ERRORSTRING: [ 'INVALID HASH' ] } }
+            //{ ERROR: { ERRORCODE: [ 'E10' ], ERRORSTRING: [ 'INVALID CARDNUMBER' ] } }
+          }else {
+            //Guardar en bd
+            //verificar md5
 
+            let unregistration = {
+              unregts: moment.utc(resp.SECURECARDREMOVALRESPONSE.DATETIME[0], 'DD-MM-YYYY:HH:mm:ss:SSS').toDate(),
+              reference: data.reference,
+              unregrespts: moment.utc(new Date()).toDate(),
+              active: false
+            }
+
+            resolve(unregistration);
+          }
+        })
+        .catch(err=>{
+          //MANEJAR ERROR
+          reject(err);
+        })    
+    });
+  }
 
   //Pay direct with credit card
   // data.orderId        : ,
@@ -172,8 +229,13 @@ class Adapter{
     var options = options || {}
     return new Promise((resolve, reject)=>{
       let payTs    =  new Date();
-      var dateTime =  moment(payTs).format("DD-MM-YYYY:HH:mm:ss:SSS");
-      var hash     =  md5(this.credential.TerminalID+data.orderId+data.amount+dateTime+this.credential.SharedSecret)
+      var dateTime =  moment.utc(payTs).format("DD-MM-YYYY:HH:mm:ss:SSS");
+      var hash     =  hashData([this.credential.TerminalID,
+        data.orderId,
+        (this.multiCurrency ? data.currency : ""), //Sólo hay que mandarlo si el TerminalId es multy-currency
+        data.amount,
+        dateTime,
+        this.credential.SharedSecret]);
 
       options.terminalType    = options.terminalType    || "2"
       options.transactionType = options.transactionType || "7"
@@ -215,7 +277,7 @@ class Adapter{
             optional        : options, 
             cardNumber      : hideCardNumber(data.cardNumber),
             rPayReference   : resp.PAYMENTRESPONSE.UNIQUEREF[0],
-            rPayTs          : moment(resp.PAYMENTRESPONSE.DATETIME[0], 'YYYY-MM-DDTHH:mm:ss').toDate(),
+            rPayTs          : moment.utc(resp.PAYMENTRESPONSE.DATETIME[0], 'YYYY-MM-DDTHH:mm:ss').toDate(),
             rApproved       : resp.PAYMENTRESPONSE.RESPONSECODE[0] == 'A',
             rPaycode        : resp.PAYMENTRESPONSE.RESPONSECODE[0],
             respts          : new Date()
@@ -261,11 +323,20 @@ class Adapter{
   payRegistered(data, options){
     var options = options || {}
     return new Promise((resolve, reject)=>{
+      
       let payTs    =  new Date();
-      var dateTime =  moment(payTs).format("DD-MM-YYYY:HH:mm:ss:SSS");
-      var hash     =  md5(this.credential.TerminalID+data.orderId+data.amount+dateTime+this.credential.SharedSecret)
-        options.terminalType    = options.terminalType    || "2"
-        options.transactionType = options.transactionType || "7"  
+      var dateTime =  moment.utc(payTs).format("DD-MM-YYYY:HH:mm:ss:SSS");
+      var hash     = hashData([
+        this.credential.TerminalID,
+        data.orderId,
+        (this.multiCurrency ? data.currency : ""),
+        data.amount,
+        dateTime,
+        this.credential.SharedSecret
+      ]);
+
+      options.terminalType    = options.terminalType    || "2";
+      options.transactionType = options.transactionType || "7"; 
       var payload = {
         "PAYMENT" :[
           {"ORDERID"        : data.orderId},
@@ -300,7 +371,7 @@ class Adapter{
             optional        : options, 
             cardNumber      : data.cardNumber,
             rPayReference   : resp.PAYMENTRESPONSE.UNIQUEREF[0],
-            rPayTs          : moment(resp.PAYMENTRESPONSE.DATETIME[0], 'YYYY-MM-DDTHH:mm:ss').toDate(),
+            rPayTs          : moment.utc(resp.PAYMENTRESPONSE.DATETIME[0], 'YYYY-MM-DDTHH:mm:ss').toDate(),
             rApproved       : resp.PAYMENTRESPONSE.RESPONSECODE[0] == 'A',
             rPaycode        : resp.PAYMENTRESPONSE.RESPONSECODE[0],
             respts          : new Date()
@@ -336,7 +407,7 @@ class Adapter{
    * @param  {Object} data Información de la devolución que se va a realizar. La información dependerá del servicio a utilizar.
    * @param  {String} data.paymentRef  Referencia del pago del que se va a realizar la devolución
    * @param  {String} data.amount      Cantidad a devolver
-   * @param  {Object} [options] Opciones extras relacionadas con la devolución. La información dependerá del servicio a utilizar.
+   * @param  {Object} [options] Opciones extras relacionadas con la devolución.
    * @param  {String} [options.operator]  Nombre de quien realiza la operacion
    * @param  {String} [options.reason]    Razón de la devolución
    * @return {Promise<TransactionSchema>} Promesa con la información de la transacción
@@ -346,10 +417,11 @@ class Adapter{
     var options = options || {}
     return new Promise((resolve, reject)=>{
       let payTs    =  new Date();
-      var dateTime =  moment(payTs).format("DD-MM-YYYY:HH:mm:ss:SSS");
-      var hash     =  md5(this.credential.TerminalID+data.paymentRef+data.amount+dateTime+this.credential.SharedSecret)
-        options.operator = options.operator || "UNKNOW"
-        options.reason   = options.reason   || "UNKNOW"  
+      var dateTime =  moment.utc(payTs).format("DD-MM-YYYY:HH:mm:ss:SSS");
+      var hash     =  hashData([this.credential.TerminalID,data.paymentRef,data.amount,dateTime,this.credential.SharedSecret]);
+
+      options.operator = options.operator || "UNKNOW"
+      options.reason   = options.reason   || "UNKNOW"  
       var payload = {
         "REFUND" :[
           {"UNIQUEREF"      : data.paymentRef},
@@ -362,6 +434,7 @@ class Adapter{
         ]
       }  
 
+      // console.log("refund payload -> ", payload);
       req(this.url, this.port, xml(payload, { declaration: true }))
       .then(resp=>{
         console.log("globalonepay refund resp", resp);
@@ -382,7 +455,7 @@ class Adapter{
             payTs           : payTs,
             optional        : options, 
             rPayReference   : resp.REFUNDRESPONSE.UNIQUEREF[0],
-            rPayTs          : moment(resp.REFUNDRESPONSE.DATETIME[0], 'DD-MM-YYYY:HH:mm:ss:SSS').toDate(),
+            rPayTs          : moment.utc(resp.REFUNDRESPONSE.DATETIME[0], 'DD-MM-YYYY:HH:mm:ss:SSS').toDate(),
             rApproved       : resp.REFUNDRESPONSE.RESPONSECODE[0] == 'A',
             rPaycode        : resp.REFUNDRESPONSE.RESPONSECODE[0],
             respts          : new Date()
@@ -402,57 +475,7 @@ class Adapter{
     })
   }
 
-  // /**
-  //  * Desregistra una tarjeta de credito. 
-  //  * @param  {Object} data Información de la tarjeta a desregistrar. La información dependerá del servicio a utilizar.
-  //  * @return {Promise<PaymentRegisterSchema>} Promesa que indica si se desregistró correctamente
-  //  */
-  // unregister(){
-  //   return new Promise((resolve, reject)=>{
-  //     let regts = new Date();
-  //     var dateTime =  moment(regts).format("DD-MM-YYYY:HH:mm:ss:SSS");
-  //     var hash     =  md5(this.credential.TerminalID+data.merchantRef+dateTime+data.reference+this.credential.SharedSecret)
-  //     console.log("Generated hash" , hash);
-  //     var payload  = {
-  //       "SECURECARDREMOVAL":[
-  //           // {"MERCHANTREF"    : this.credential.Merchandt},
-  //           {"TERMINALID"     : this.credential.TerminalID},
-  //           {"MERCHANTREF"    : data.merchantRef},
-  //           {"DATETIME"       : dateTime},
-  //           {"CARDREFERENCE"  : data.reference},
-  //           {"HASH"           : hash}
-  //         ]
-  //     }
-  //     console.log("entra en payments.unregister globalonepay", payload)
-  //     req(this.url, this.port, xml(payload, { declaration: true }))
-  //       .then(resp=>{
-  //        // console.log(resp);
-  //         console.log("globalonepay unregister resp", resp);
-  //         if (resp.ERROR){
-  //           //manejar la situacion con error code
-  //           reject(createError(resp.ERROR));
-  //           //{ ERROR: { ERRORCODE: [ 'E08' ], ERRORSTRING: [ 'INVALID MERCHANTREF' ] } }
-  //           //{ ERROR: { ERRORCODE: [ 'E13' ], ERRORSTRING: [ 'INVALID HASH' ] } }
-  //           //{ ERROR: { ERRORCODE: [ 'E10' ], ERRORSTRING: [ 'INVALID CARDNUMBER' ] } }
-  //         }else {
-  //           //Guardar en bd
-  //           //verificar md5
 
-  //           let unregistration = {
-  //             unregts: moment(resp.SECURECARDREMOVALRESPONSE.DATETIME[0], 'DD-MM-YYYY:HH:mm:ss:SSS').toDate(),
-  //             reference: data.reference,
-  //             respts: new Date()
-  //           }
-
-  //           resolve(unregistration);
-  //         }
-  //       })
-  //       .catch(err=>{
-  //         //MANEJAR ERROR
-  //         reject(err);
-  //       })    
-  //   });
-  // }
 }
 
 function hideCardNumber(cardNumber){
@@ -460,6 +483,7 @@ function hideCardNumber(cardNumber){
 }
 
 function req(url, port, payload){
+  // console.log("request -> ", url, port);
   return new Promise((resolve, reject)=>{
     request.post({
       url:  url,
@@ -482,15 +506,18 @@ function req(url, port, payload){
   })
 }
 
+function hashData(partsArray){
+  return md5(partsArray.join(''));
+}
 
 function createError(errorInfo){
-  console.log("Per Payments Error");
+  // console.log("Per Payments Error");
   var PaymentsError = require('./model/paymentsError');
   // console.log("Payments Error", PaymentsError);
   var error =  new PaymentsError( (errorInfo.ERRORCODE ? errorInfo.ERRORCODE[0] : 0), errorInfo.ERRORSTRING[0] );
-  console.log("Created Error", error);
-  console.log("Created Error code", error.code);
-  console.log("Created Error message", error.message);
+  // console.log("Created Error", error);
+  // console.log("Created Error code", error.code);
+  // console.log("Created Error message", error.message);
   return error;
 }
 
