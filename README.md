@@ -14,11 +14,11 @@ NO DISPONIBLE
 
 La configuración manual se realiza en el archivo "config.json".
 
-Para ello hay que añadir el objeto "paymentsOptions", si no se tenía anteriormente, y agregar un objeto cuya clave sea "globalonepay" que contendrá la información necesaria para el servicio. Al completarlo, debería quedar de la siguiente manera:
+Para ello hay que añadir el objeto "paymentsOptions", si no se tenía anteriormente, y agregar un objeto cuya clave sea "globalOnePay" que contendrá la información necesaria para el servicio. Al completarlo, debería quedar de la siguiente manera:
 
 ```javascript
 "paymentsOptions":{
-  "globalonepay":{
+  "globalOnePay":{
     "merchandt": "12343219",
     "terminalId": "99089",
     "sharedSecret": "123456789XX"

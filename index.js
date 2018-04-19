@@ -25,6 +25,9 @@ var parseString = require('xml2js').parseString;
 
 var defaultUrl = "https://testpayments.globalone.me/merchant/xmlpayment";
 var defaultPort = 443;
+
+var SERVICE_PROVIDER_NAME = "globalOnePay";
+
 // var url;
 // var port;
 
@@ -114,7 +117,7 @@ class Adapter{
       req(this.url, this.port, xml(payload, { declaration: true }))
       .then(resp=>{
        // console.log(resp);
-        console.log("globalonepay register resp", resp);
+        console.log("globalonepay register resp", JSON.stringify(resp));
         if (resp.ERROR){
           //manejar la situacion con error code
           reject(createError(resp.ERROR));
@@ -132,7 +135,9 @@ class Adapter{
             cardNumber: hideCardNumber(data.cardNumber),
             regts: moment.utc(resp.SECURECARDREGISTRATIONRESPONSE.DATETIME[0], 'DD-MM-YYYY:HH:mm:ss:SSS').toDate(),//regts,
             regrespts: moment.utc(new Date()).toDate(),
-            active: true
+            active: true,
+            serviceProvider : SERVICE_PROVIDER_NAME,
+            originalResponse: resp
           }
 
           resolve(registration);
@@ -172,7 +177,7 @@ class Adapter{
       req(this.url, this.port, xml(payload, { declaration: true }))
         .then(resp=>{
          // console.log(resp);
-          console.log("globalonepay unregister resp", resp);
+          console.log("globalonepay unregister resp", JSON.stringify(resp));
           if (resp.ERROR){
             //manejar la situacion con error code
             reject(createError(resp.ERROR));
@@ -187,7 +192,9 @@ class Adapter{
               unregts: moment.utc(resp.SECURECARDREMOVALRESPONSE.DATETIME[0], 'DD-MM-YYYY:HH:mm:ss:SSS').toDate(),
               reference: data.reference,
               unregrespts: moment.utc(new Date()).toDate(),
-              active: false
+              active: false,
+              serviceProvider : SERVICE_PROVIDER_NAME,
+              originalResponse: resp
             }
 
             resolve(unregistration);
@@ -259,7 +266,7 @@ class Adapter{
 
       req(this.url, this.port, xml(payload, { declaration: true }))
       .then(resp=>{
-        console.log("globalonepay pay resp", resp);
+        console.log("globalonepay pay resp", JSON.stringify(resp));
        
         if (resp.ERROR){
           //manejar la situacion con error code
@@ -280,7 +287,12 @@ class Adapter{
             rPayTs          : moment.utc(resp.PAYMENTRESPONSE.DATETIME[0], 'YYYY-MM-DDTHH:mm:ss').toDate(),
             rApproved       : resp.PAYMENTRESPONSE.RESPONSECODE[0] == 'A',
             rPaycode        : resp.PAYMENTRESPONSE.RESPONSECODE[0],
-            respts          : new Date()
+            rText           : resp.PAYMENTRESPONSE.RESPONSETEXT[0],
+            rApprovalCode   : (resp.PAYMENTRESPONSE.APPROVALCODE[0] || undefined), //Si es cadena vacía se guarda undefined
+            rBankcode       : resp.PAYMENTRESPONSE.BANKRESPONSECODE[0],
+            respts          : new Date(),
+            serviceProvider : SERVICE_PROVIDER_NAME,
+            originalResponse: resp
           };
 
           resolve(transaction);
@@ -354,7 +366,7 @@ class Adapter{
 
       req(this.url, this.port, xml(payload, { declaration: true }))
       .then(resp=>{
-        console.log("globalonepay pay registered resp", resp);
+        console.log("globalonepay pay registered resp", JSON.stringify(resp));
         if (resp.ERROR){
           //manejar la situacion con error code
           reject(createError(resp.ERROR));
@@ -374,7 +386,12 @@ class Adapter{
             rPayTs          : moment.utc(resp.PAYMENTRESPONSE.DATETIME[0], 'YYYY-MM-DDTHH:mm:ss').toDate(),
             rApproved       : resp.PAYMENTRESPONSE.RESPONSECODE[0] == 'A',
             rPaycode        : resp.PAYMENTRESPONSE.RESPONSECODE[0],
-            respts          : new Date()
+            rText           : resp.PAYMENTRESPONSE.RESPONSETEXT[0],
+            rApprovalCode   : (resp.PAYMENTRESPONSE.APPROVALCODE[0] || undefined), //Si es cadena vacía se guarda undefined
+            rBankcode       : resp.PAYMENTRESPONSE.BANKRESPONSECODE[0],
+            respts          : new Date(),
+            serviceProvider : SERVICE_PROVIDER_NAME,
+            originalResponse: resp
           };
 
           resolve(transaction);
@@ -437,7 +454,7 @@ class Adapter{
       // console.log("refund payload -> ", payload);
       req(this.url, this.port, xml(payload, { declaration: true }))
       .then(resp=>{
-        console.log("globalonepay refund resp", resp);
+        console.log("globalonepay refund resp", JSON.stringify(resp));
         if (resp.ERROR){
           //manejar la situacion con error code
           reject(createError(resp.ERROR));
@@ -458,7 +475,10 @@ class Adapter{
             rPayTs          : moment.utc(resp.REFUNDRESPONSE.DATETIME[0], 'DD-MM-YYYY:HH:mm:ss:SSS').toDate(),
             rApproved       : resp.REFUNDRESPONSE.RESPONSECODE[0] == 'A',
             rPaycode        : resp.REFUNDRESPONSE.RESPONSECODE[0],
-            respts          : new Date()
+            rText           : resp.REFUNDRESPONSE.RESPONSETEXT[0],
+            respts          : new Date(),
+            serviceProvider : SERVICE_PROVIDER_NAME,
+            originalResponse: resp
           };
           resolve(transaction);
           // { RESPONSECODE: [ 'A' ],
@@ -483,7 +503,6 @@ function hideCardNumber(cardNumber){
 }
 
 function req(url, port, payload){
-  // console.log("request -> ", url, port);
   return new Promise((resolve, reject)=>{
     request.post({
       url:  url,
@@ -511,13 +530,9 @@ function hashData(partsArray){
 }
 
 function createError(errorInfo){
-  // console.log("Per Payments Error");
   var PaymentsError = require('./model/paymentsError');
-  // console.log("Payments Error", PaymentsError);
+
   var error =  new PaymentsError( (errorInfo.ERRORCODE ? errorInfo.ERRORCODE[0] : 0), errorInfo.ERRORSTRING[0] );
-  // console.log("Created Error", error);
-  // console.log("Created Error code", error.code);
-  // console.log("Created Error message", error.message);
   return error;
 }
 
