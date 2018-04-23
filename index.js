@@ -226,7 +226,18 @@ class Adapter{
    * @param  {String} data.cardExpiry Fecha de vencimiento de la tarjeta de crédito en formato "MMYY" (Ej:0920 -> "Septiembre de 2020").
    * @param  {String} data.cardType  Tipo de tarjeta de crédito (EJ: MASTERCARD).
    * @param  {String} data.cardHolderName Nombre en la tarjeta de crédito.
-   * @param  {String} data.cvv Código secreto que aparece en la tarjeta
+   * @param  {[String]} data.cvv Código secreto que aparece en la tarjeta
+   *
+   * @param  {[String]} data.customerPostcode Código postal del dueño de la tarjeta
+   * @param  {[String]} data.customerCity Ciudad del dueño de la tarjeta
+   * @param  {[String]} data.customerRegion Región del dueño de la tarjeta
+   * @param  {[String]} data.customerCountry País del dueño de la tarjeta en formato ISO 3166-1-alpha-2
+   * @param  {[String]} data.customerAddress1 Dirección 1 del dueño de la tarjeta
+   * @param  {[String]} data.customerAddress2 Dirección 2 del dueño de la tarjeta
+   * @param  {[String]} data.customerPhone Teléfono del cliente asociado a la tarjeta en formato internacional
+   * @param  {[String]} data.description Descripción de la transacción
+   * @param  {[String]} data.ipAddress Dirección IP desde la que se realiza la transacción
+   * 
    * @param  {Object} [options] Opciones extras relacionadas con el pago. La información dependerá del servicio a utilizar.
    * @param  {String} options.terminalType Terminal Type de GlobalOnePay
    * @param  {String} options.transactionType Tipo de transacción de GlobalOnePay
@@ -259,10 +270,21 @@ class Adapter{
           {"HASH"           : hash},
           {"CURRENCY"       : data.currency},
           {"TERMINALTYPE"   : options.terminalType},
-          {"TRANSACTIONTYPE": options.transactionType},
-          {"CVV"            : data.cvv}
+          {"TRANSACTIONTYPE": options.transactionType}
         ]
       }
+
+      if(data.cvv) payload.PAYMENT.push({"CVV" : data.cvv});
+
+      if(data.customerPostcode) payload.PAYMENT.push({"POSTCODE" : data.customerPostcode});
+      if(data.customerCity) payload.PAYMENT.push({"CITY" : data.customerCity});
+      if(data.customerRegion) payload.PAYMENT.push({"REGION" : data.customerRegion});
+      if(data.customerCountry) payload.PAYMENT.push({"COUNTRY" : data.customerCountry});
+      if(data.customerAddress1) payload.PAYMENT.push({"ADDRESS1" : data.customerAddress1});
+      if(data.customerAddress2) payload.PAYMENT.push({"ADDRESS2" : data.customerAddress2});
+      if(data.customerPhone) payload.PAYMENT.push({"PHONE" : data.customerPhone});
+      if(data.description) payload.PAYMENT.push({"DESCRIPTION" : data.description});
+      if(data.ipAddress) payload.PAYMENT.push({"IPADDRESS" : data.ipAddress});
 
       req(this.url, this.port, xml(payload, { declaration: true }))
       .then(resp=>{
