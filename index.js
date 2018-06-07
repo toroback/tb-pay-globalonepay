@@ -48,6 +48,7 @@ class Adapter{
    */
   constructor(client){
     this.client = client;
+    this.providerName = SERVICE_PROVIDER_NAME;
     this.credential = {
       // Merchandt       : client.options.merchandt,
       TerminalID      : client.options.terminalId,
@@ -136,7 +137,7 @@ class Adapter{
             regts: moment.utc(resp.SECURECARDREGISTRATIONRESPONSE.DATETIME[0], 'DD-MM-YYYY:HH:mm:ss:SSS').toDate(),//regts,
             regrespts: moment.utc(new Date()).toDate(),
             active: true,
-            serviceProvider : SERVICE_PROVIDER_NAME,
+            serviceProvider : this.providerName,
             originalResponse: resp
           }
 
@@ -193,7 +194,7 @@ class Adapter{
               reference: data.reference,
               unregrespts: moment.utc(new Date()).toDate(),
               active: false,
-              serviceProvider : SERVICE_PROVIDER_NAME,
+              serviceProvider : this.providerName,
               originalResponse: resp
             }
 
@@ -313,7 +314,7 @@ class Adapter{
             rApprovalCode   : (resp.PAYMENTRESPONSE.APPROVALCODE[0] || undefined), //Si es cadena vacía se guarda undefined
             rBankcode       : resp.PAYMENTRESPONSE.BANKRESPONSECODE[0],
             respts          : new Date(),
-            serviceProvider : SERVICE_PROVIDER_NAME,
+            serviceProvider : this.providerName,
             originalResponse: resp
           };
 
@@ -412,7 +413,7 @@ class Adapter{
             rApprovalCode   : (resp.PAYMENTRESPONSE.APPROVALCODE[0] || undefined), //Si es cadena vacía se guarda undefined
             rBankcode       : resp.PAYMENTRESPONSE.BANKRESPONSECODE[0],
             respts          : new Date(),
-            serviceProvider : SERVICE_PROVIDER_NAME,
+            serviceProvider : this.providerName,
             originalResponse: resp
           };
 
@@ -499,7 +500,7 @@ class Adapter{
             rPaycode        : resp.REFUNDRESPONSE.RESPONSECODE[0],
             rText           : resp.REFUNDRESPONSE.RESPONSETEXT[0],
             respts          : new Date(),
-            serviceProvider : SERVICE_PROVIDER_NAME,
+            serviceProvider : this.providerName,
             originalResponse: resp
           };
           resolve(transaction);
@@ -539,7 +540,7 @@ function req(url, port, payload){
       if (error) reject(error);
       else{
         parseString(body, (err, result) =>{
-          if (error) reject(error);
+          if (err) reject(err);
           else resolve(result);
         });         
       }
