@@ -227,17 +227,17 @@ class Adapter{
    * @param  {String} data.cardExpiry Fecha de vencimiento de la tarjeta de crédito en formato "MMYY" (Ej:0920 -> "Septiembre de 2020").
    * @param  {String} data.cardType  Tipo de tarjeta de crédito (EJ: MASTERCARD).
    * @param  {String} data.cardHolderName Nombre en la tarjeta de crédito.
-   * @param  {[String]} data.cvv Código secreto que aparece en la tarjeta
+   * @param  {String} [data.cvv] Código secreto que aparece en la tarjeta
    *
-   * @param  {[String]} data.customerPostcode Código postal del dueño de la tarjeta
-   * @param  {[String]} data.customerCity Ciudad del dueño de la tarjeta
-   * @param  {[String]} data.customerRegion Región del dueño de la tarjeta
-   * @param  {[String]} data.customerCountry País del dueño de la tarjeta en formato ISO 3166-1-alpha-2
-   * @param  {[String]} data.customerAddress1 Dirección 1 del dueño de la tarjeta
-   * @param  {[String]} data.customerAddress2 Dirección 2 del dueño de la tarjeta
-   * @param  {[String]} data.customerPhone Teléfono del cliente asociado a la tarjeta en formato internacional
-   * @param  {[String]} data.description Descripción de la transacción
-   * @param  {[String]} data.ipAddress Dirección IP desde la que se realiza la transacción
+   * @param  {String} [data.customerPostcode] Código postal del dueño de la tarjeta
+   * @param  {String} [data.customerCity] Ciudad del dueño de la tarjeta
+   * @param  {String} [data.customerRegion] Región del dueño de la tarjeta
+   * @param  {String} [data.customerCountry] País del dueño de la tarjeta en formato ISO 3166-1-alpha-2
+   * @param  {String} [data.customerAddress1] Dirección 1 del dueño de la tarjeta
+   * @param  {String} [data.customerAddress2] Dirección 2 del dueño de la tarjeta
+   * @param  {String} [data.customerPhone] Teléfono del cliente asociado a la tarjeta en formato internacional
+   * @param  {String} [data.description] Descripción de la transacción
+   * @param  {String} [data.ipAddress] Dirección IP desde la que se realiza la transacción
    * 
    * @param  {Object} [options] Opciones extras relacionadas con el pago. La información dependerá del servicio a utilizar.
    * @param  {String} options.terminalType Terminal Type de GlobalOnePay
